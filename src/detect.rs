@@ -21,7 +21,6 @@ pub enum MsgType {
 #[serde(rename_all = "snake_case")]
 pub struct SpamCheckResult {
     pub msg_type: MsgType,
-    pub reason: String,
 }
 
 /// Converts a standard JSON schema to Gemini's simplified schema format
@@ -83,7 +82,7 @@ impl Agent {
     pub fn new(api_key: String) -> Self {
         Self {
             // Failing to create a Gemini client is a fatal error
-            client: Gemini::with_model(api_key, Model::Gemini3Flash)
+            client: Gemini::with_model(api_key, Model::Gemini25Flash)
                 .expect("Failed to create a Gemini client"),
         }
     }
@@ -101,6 +100,7 @@ impl Agent {
             .with_response_schema(gemini_schema)
             .with_system_prompt("Please moderate the following content and provide a decision.")
             .with_user_message(text)
+            .with_thinking_budget(0)
             .execute()
             .await?;
 
@@ -118,7 +118,6 @@ impl Agent {
                 // Fail open: assume not spam if we can't parse the response
                 Ok(SpamCheckResult {
                     msg_type: MsgType::NotSpam,
-                    reason: "Failed to parse AI response".to_string(),
                 })
             }
         }

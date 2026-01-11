@@ -13,18 +13,17 @@ pub async fn process_spam(bot: &Bot, message: &Message, res: SpamCheckResult) {
     let chat = &message.chat;
 
     info!(
-        "Chat: {} ({}) | User: {} | Type: {:?} | Reason: {:?}",
+        "Chat: {} ({}) | User: {} | Type: {:?}",
         chat.title().unwrap_or(""),
         chat.id,
         user_info,
         res.msg_type,
-        res.reason,
     );
 
     // Reply to the message with the spam detection result
     let reply_text = format!(
-        "🚫 Spam detected!\n\nType: {:?}\nReason: {}\n\nUser has been restricted for 24 hours.",
-        res.msg_type, res.reason
+        "🚫 Spam detected!\n\nType: {:?}\n\nUser has been restricted for 24 hours.",
+        res.msg_type
     );
 
     if let Err(e) = bot
