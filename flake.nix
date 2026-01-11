@@ -26,6 +26,7 @@
         import nixpkgs {
           system = "${system}";
           overlays = [ rust-overlay.overlays.default ];
+          config.allowUnfree = true;
         };
       pkgSet = system: rec {
         default = tg-anti-spam;
@@ -85,6 +86,8 @@
               binutils-unwrapped
               cargo-cache
               cargo-outdated
+
+              antigravity
             ];
           };
       })
