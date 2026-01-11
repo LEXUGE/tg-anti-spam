@@ -30,11 +30,8 @@ mod tests {
         let cid = ChatId(1);
         let uid = UserId(100);
 
-        // 1st - count becomes 1. 1 <= 2. True.
         assert!(pre.should_process(cid, uid));
-        // 2nd - count becomes 2. 2 <= 2. True.
         assert!(pre.should_process(cid, uid));
-        // 3rd - count becomes 3. 3 <= 2. False.
         assert!(!pre.should_process(cid, uid));
     }
 }

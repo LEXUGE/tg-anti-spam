@@ -45,6 +45,12 @@ impl AppState {
         *entry += 1;
         *entry
     }
+
+    /// Reset the counter for a specific user in a chat
+    pub fn reset(&self, chat_id: ChatId, user_id: UserId) {
+        let key = Self::key(chat_id, user_id);
+        self.counters.remove(&key);
+    }
 }
 
 #[cfg(test)]

@@ -4,7 +4,6 @@ use crate::state::AppState;
 use crate::{detect::Agent, post, pre::Filter};
 use std::sync::Arc;
 use teloxide::prelude::*;
-use teloxide::types::UserId;
 use teloxide::utils::command::BotCommands;
 
 #[derive(BotCommands, Clone)]
@@ -16,6 +15,8 @@ enum Command {
     Stats,
     #[command(description = "Save state")]
     Save,
+    #[command(description = "Reset your message count")]
+    Reset,
 }
 
 pub async fn run_bot(
@@ -52,27 +53,37 @@ async fn handle_command(
     state: Arc<AppState>,
     settings: Arc<Settings>,
 ) -> ResponseResult<()> {
+    let user = match msg.from.as_ref() {
+        Some(u) => u,
+        None => return Ok(()),
+    };
+
+    let chat_id = msg.chat.id;
+    let user_id = user.id;
+
     match cmd {
         Command::Start => {
-            bot.send_message(msg.chat.id, "Hello! I am the Anti-Spam Bot.")
+            bot.send_message(chat_id, "Hello! I am the Anti-Spam Bot.")
                 .await?;
         }
         Command::Stats => {
-            let count = state.get_count(
-                msg.chat.id,
-                msg.from.as_ref().map(|u| u.id).unwrap_or(UserId(0)),
-            );
-            bot.send_message(msg.chat.id, format!("Your message count: {}", count))
+            let count = state.get_count(chat_id, user_id);
+            bot.send_message(chat_id, format!("Your message count: {}", count))
                 .await?;
         }
         Command::Save => {
             if let Err(e) = state.save_to_file(&settings.state_path).await {
-                bot.send_message(msg.chat.id, format!("Failed to save state: {}", e))
+                bot.send_message(chat_id, format!("Failed to save state: {}", e))
                     .await?;
             } else {
-                bot.send_message(msg.chat.id, "State saved successfully.")
+                bot.send_message(chat_id, "State saved successfully.")
                     .await?;
             }
+        }
+        Command::Reset => {
+            state.reset(chat_id, user_id);
+            bot.send_message(chat_id, "Your message count has been reset to 0.")
+                .await?;
         }
     }
     Ok(())
@@ -84,7 +95,6 @@ async fn handle_spam_check(
     agent: Arc<Agent>,
     pre: Arc<Filter>,
 ) -> ResponseResult<()> {
-    // 1. Filter Logic (Rate Limiting / Quota)
     let chat_id = msg.chat.id;
     let user_id = match msg.from.as_ref() {
         Some(u) => u.id,
@@ -95,7 +105,6 @@ async fn handle_spam_check(
         return Ok(());
     }
 
-    // 2. Spam Check
     if let Some(text) = msg.text() {
         match agent.check_spam(text).await {
             Ok(res) => {

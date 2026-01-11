@@ -34,11 +34,9 @@ pub async fn process_spam(bot: &Bot, message: &Message, res: SpamCheckResult) {
         tracing::error!("Failed to reply to spam message: {}", e);
     }
 
-    // Ban the user for 1 day (24 hours)
     if let Some(user) = user {
         let until_date = chrono::Utc::now() + chrono::Duration::days(1);
 
-        // Restrict user permissions (no sending messages) for 1 day
         if let Err(e) = bot
             .restrict_chat_member(chat.id, user.id, ChatPermissions::empty())
             .until_date(until_date)

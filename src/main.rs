@@ -15,15 +15,12 @@ use tokio::time::{self, Duration};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 1. Setup logging
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    // 2. Load Config
     let settings = Arc::new(Settings::new().expect("Failed to load settings"));
 
-    // 3. Load State
     let state = match AppState::load_from_file(&settings.state_path).await {
         Ok(s) => s,
         Err(e) => {
@@ -33,11 +30,9 @@ async fn main() -> anyhow::Result<()> {
     };
     let state = Arc::new(state);
 
-    // 4. Initialize Components
     let agent = Arc::new(Agent::new(settings.gemini_api_key.clone()));
     let pre = Arc::new(Filter::new(state.clone(), settings.check_threshold));
 
-    // 5. Background Task: Periodic Save
     let state_for_save = state.clone();
     let state_path = settings.state_path.clone(); // Clone for 'static lifetime
     tokio::spawn(async move {
@@ -50,7 +45,6 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // 6. Start Bot
     let bot = Bot::new(settings.tg_bot_token.clone());
     tracing::info!("Starting Anti-Spam Bot...");
 
