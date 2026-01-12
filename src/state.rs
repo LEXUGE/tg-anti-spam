@@ -1,11 +1,14 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use teloxide::types::{ChatId, UserId};
+use std::collections::VecDeque;
+use teloxide::types::{ChatId, Message, UserId};
 use tokio::fs;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct AppState {
     pub counters: DashMap<String, u64>,
+    #[serde(default)]
+    pub message_history: DashMap<i64, VecDeque<Message>>,
 }
 
 impl AppState {
@@ -50,6 +53,31 @@ impl AppState {
     pub fn reset(&self, chat_id: ChatId, user_id: UserId) {
         let key = Self::key(chat_id, user_id);
         self.counters.remove(&key);
+    }
+
+    /// Add a message to the chat's history, maintaining a maximum size
+    pub fn add_message(&self, chat_id: ChatId, message: Message, max_size: usize) {
+        let chat_key = chat_id.0;
+        let mut entry = self
+            .message_history
+            .entry(chat_key)
+            .or_insert_with(VecDeque::new);
+
+        entry.push_back(message);
+
+        // Remove oldest messages if we exceed the limit
+        while entry.len() > max_size {
+            entry.pop_front();
+        }
+    }
+
+    /// Get the message history for a chat
+    pub fn get_context(&self, chat_id: ChatId) -> Vec<Message> {
+        let chat_key = chat_id.0;
+        self.message_history
+            .get(&chat_key)
+            .map(|queue| queue.iter().cloned().collect())
+            .unwrap_or_default()
     }
 }
 

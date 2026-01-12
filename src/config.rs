@@ -9,6 +9,8 @@ pub struct Settings {
     pub check_threshold: u64,
     #[serde(default = "default_state_path")]
     pub state_path: String,
+    #[serde(default = "default_context_messages")]
+    pub context_messages: usize,
 }
 
 fn default_state_path() -> String {
@@ -16,7 +18,11 @@ fn default_state_path() -> String {
 }
 
 fn default_threshold() -> u64 {
-    100
+    20
+}
+
+fn default_context_messages() -> usize {
+    5
 }
 
 impl Settings {

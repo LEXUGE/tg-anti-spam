@@ -94,6 +94,8 @@ async fn handle_spam_check(
     msg: Message,
     agent: Arc<Agent>,
     pre: Arc<Filter>,
+    state: Arc<AppState>,
+    settings: Arc<Settings>,
 ) -> ResponseResult<()> {
     let chat_id = msg.chat.id;
     let user_id = match msg.from.as_ref() {
@@ -105,8 +107,11 @@ async fn handle_spam_check(
         return Ok(());
     }
 
-    if let Some(text) = msg.text() {
-        match agent.check_spam(text).await {
+    if msg.text().is_some() {
+        // Retrieve message history context
+        let context = state.get_context(chat_id);
+
+        match agent.check_spam(&msg, &context).await {
             Ok(res) => {
                 if res.msg_type != MsgType::NotSpam {
                     post::process_spam(&bot, &msg, res).await;
@@ -116,6 +121,9 @@ async fn handle_spam_check(
                 tracing::error!("Failed to check spam: {}", e);
             }
         }
+
+        // Store message in history after processing (regardless of spam result)
+        state.add_message(chat_id, msg, settings.context_messages);
     }
 
     Ok(())
