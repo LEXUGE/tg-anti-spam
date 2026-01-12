@@ -6,17 +6,25 @@ use std::sync::Arc;
 use teloxide::prelude::*;
 use teloxide::utils::command::BotCommands;
 
-#[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase", description = "Supported commands:")]
+#[derive(BotCommands, Clone, Debug)]
+#[command(
+    rename_rule = "snake_case",
+    description = "Supported commands:",
+    parse_with = "split"
+)]
+// NOTE: Explicitly set zero argument tuple together with parse_with = "split" to prevent user from
+// spamming using command invocation.
 enum Command {
     #[command(description = "Start the bot")]
-    Start,
+    Start(),
     #[command(description = "Show statistics")]
-    Stats,
+    Stats(),
     #[command(description = "Save state")]
-    Save,
+    Save(),
     #[command(description = "Reset your message count")]
-    Reset,
+    Reset(),
+    #[command(description = "Clear context")]
+    ClearContext(),
 }
 
 pub async fn run_bot(
@@ -62,16 +70,16 @@ async fn handle_command(
     let user_id = user.id;
 
     match cmd {
-        Command::Start => {
-            bot.send_message(chat_id, "Hello! I am the Anti-Spam Bot.")
+        Command::Start() => {
+            bot.send_message(chat_id, "Hello! I am an Anti-Spam Bot.")
                 .await?;
         }
-        Command::Stats => {
+        Command::Stats() => {
             let count = state.get_count(chat_id, user_id);
             bot.send_message(chat_id, format!("Your message count: {}", count))
                 .await?;
         }
-        Command::Save => {
+        Command::Save() => {
             if let Err(e) = state.save_to_file(&settings.state_path).await {
                 bot.send_message(chat_id, format!("Failed to save state: {}", e))
                     .await?;
@@ -80,9 +88,14 @@ async fn handle_command(
                     .await?;
             }
         }
-        Command::Reset => {
+        Command::Reset() => {
             state.reset(chat_id, user_id);
             bot.send_message(chat_id, "Your message count has been reset to 0.")
+                .await?;
+        }
+        Command::ClearContext() => {
+            state.clear_context(chat_id);
+            bot.send_message(chat_id, "Message context has been cleared.")
                 .await?;
         }
     }

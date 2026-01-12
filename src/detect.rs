@@ -8,7 +8,7 @@ pub struct Agent {
     client: Gemini,
 }
 
-const SYSTEM_PROMPT: &'static str = "Content moderator for Telegram groups. Classify messages into categories. Context provided when available helps reduce false positives. Users may swear or trigger keywords normally. Avoid false positives.";
+const SYSTEM_PROMPT: &str = "Content moderator for Telegram groups. Classify messages into categories. Context provided when available helps reduce false positives. Users may swear or trigger keywords normally. Avoid false positives.";
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
@@ -54,26 +54,24 @@ fn convert_to_gemini_schema(mut schema: serde_json::Value) -> serde_json::Value 
 fn resolve_refs(value: &mut serde_json::Value, defs: &Option<serde_json::Value>) {
     match value {
         serde_json::Value::Object(map) => {
-            if let Some(ref_path) = map.get("$ref").and_then(|v| v.as_str()) {
-                if let Some(def_name) = ref_path.strip_prefix("#/$defs/") {
-                    if let Some(inner_defs) = defs {
-                        if let Some(definition) = inner_defs.get(def_name) {
-                            // Remove the $ref field
-                            map.remove("$ref");
+            if let Some(ref_path) = map.get("$ref").and_then(|v| v.as_str())
+                && let Some(def_name) = ref_path.strip_prefix("#/$defs/")
+                && let Some(inner_defs) = defs
+                && let Some(definition) = inner_defs.get(def_name)
+            {
+                // Remove the $ref field
+                map.remove("$ref");
 
-                            // Merge definition fields into the current object
-                            if let Some(def_obj) = definition.as_object() {
-                                for (key, val) in def_obj {
-                                    map.insert(key.clone(), val.clone());
-                                }
-                            }
-
-                            // Continue resolving refs in the merged object
-                            resolve_refs(value, defs);
-                            return;
-                        }
+                // Merge definition fields into the current object
+                if let Some(def_obj) = definition.as_object() {
+                    for (key, val) in def_obj {
+                        map.insert(key.clone(), val.clone());
                     }
                 }
+
+                // Continue resolving refs in the merged object
+                resolve_refs(value, defs);
+                return;
             }
 
             // If $ref is not directly present, check each individual fields.

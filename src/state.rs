@@ -58,16 +58,21 @@ impl AppState {
     /// Add a message to the chat's history, maintaining a maximum size
     pub fn add_message(&self, chat_id: ChatId, message: Message, max_size: usize) {
         let chat_key = chat_id.0;
-        let mut entry = self
-            .message_history
-            .entry(chat_key)
-            .or_insert_with(VecDeque::new);
+        let mut entry = self.message_history.entry(chat_key).or_default();
 
         entry.push_back(message);
 
         // Remove oldest messages if we exceed the limit
         while entry.len() > max_size {
             entry.pop_front();
+        }
+    }
+
+    /// Clear message context for a specific chat_id
+    pub fn clear_context(&self, chat_id: ChatId) {
+        let chat_key = chat_id.0;
+        if let Some(mut q) = self.message_history.get_mut(&chat_key) {
+            q.clear()
         }
     }
 
