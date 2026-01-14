@@ -76,12 +76,13 @@ pub async fn process_spam(
         ]]);
 
         let notification_text = format!(
-            "Spam detected!\n\nType: {:?}\nUser: {}\nMessage (first 50 chars): {}\n\nUser has been banned for 24 hours.",
+            "Spam detected!\n\nType: {:?}\nUser: {}\nMessage (first 50 chars): <tg-spoiler>{}</tg-spoiler>\n\nUser has been banned for 24 hours.",
             res.msg_type, user_display, message_text
         );
 
         match bot
             .send_message(chat.id, notification_text)
+            .parse_mode(teloxide::types::ParseMode::Html)
             .reply_markup(keyboard)
             .await
         {

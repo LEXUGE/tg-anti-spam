@@ -2,12 +2,10 @@ mod bot;
 mod config;
 mod detect;
 mod post;
-mod pre;
 mod state;
 
 use crate::config::Settings;
 use crate::detect::Agent;
-use crate::pre::Filter;
 use crate::state::AppState;
 use std::sync::Arc;
 use teloxide::Bot;
@@ -31,7 +29,6 @@ async fn main() -> anyhow::Result<()> {
     let state = Arc::new(state);
 
     let agent = Arc::new(Agent::new(settings.gemini_api_key.clone()));
-    let pre = Arc::new(Filter::new(state.clone(), settings.check_threshold));
 
     let state_for_save = state.clone();
     let state_path = settings.state_path.clone(); // Clone for 'static lifetime
@@ -48,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
     let bot = Bot::new(settings.tg_bot_token.clone());
     tracing::info!("Starting Anti-Spam Bot...");
 
-    bot::run_bot(bot, agent, pre, state, settings).await?;
+    bot::run_bot(bot, agent, state, settings).await?;
 
     Ok(())
 }

@@ -1,7 +1,7 @@
 use crate::config::Settings;
 use crate::detect::MsgType;
 use crate::state::AppState;
-use crate::{detect::Agent, post, pre::Filter};
+use crate::{detect::Agent, post};
 use std::sync::Arc;
 use teloxide::prelude::*;
 use teloxide::types::ReplyParameters;
@@ -31,7 +31,6 @@ enum Command {
 pub async fn run_bot(
     bot: Bot,
     agent: Arc<Agent>,
-    pre: Arc<Filter>,
     state: Arc<AppState>,
     settings: Arc<Settings>,
 ) -> anyhow::Result<()> {
@@ -49,7 +48,7 @@ pub async fn run_bot(
         .branch(message_handler);
 
     Dispatcher::builder(bot, handler)
-        .dependencies(dptree::deps![agent, pre, state, settings])
+        .dependencies(dptree::deps![agent, state, settings])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
@@ -115,7 +114,6 @@ async fn handle_spam_check(
     bot: Bot,
     msg: Message,
     agent: Arc<Agent>,
-    pre: Arc<Filter>,
     state: Arc<AppState>,
     settings: Arc<Settings>,
 ) -> ResponseResult<()> {
@@ -125,7 +123,8 @@ async fn handle_spam_check(
         None => return Ok(()),
     };
 
-    if !pre.should_process(chat_id, user_id) {
+    // Only check spam for users who haven't reached the trusted threshold
+    if state.is_trusted_user(chat_id, user_id, settings.check_threshold) {
         return Ok(());
     }
 
@@ -137,10 +136,14 @@ async fn handle_spam_check(
             Ok(res) => {
                 if res.msg_type != MsgType::NotSpam {
                     post::process_spam(&bot, &msg, res, state.clone()).await;
+                } else {
+                    // Only increment counter for non-spam messages
+                    state.increment(chat_id, user_id);
                 }
             }
             Err(e) => {
                 tracing::error!("Failed to check spam: {}", e);
+                // On error, don't increment counter (be conservative)
             }
         }
 
@@ -191,6 +194,7 @@ async fn handle_callback_inner(
         "dismiss" => {
             handle_dismiss(
                 bot,
+                q,
                 state,
                 settings,
                 chat_id,
@@ -207,6 +211,7 @@ async fn handle_callback_inner(
 
 async fn handle_dismiss(
     bot: &Bot,
+    q: &CallbackQuery,
     state: &AppState,
     settings: &Settings,
     chat_id: ChatId,
@@ -229,8 +234,24 @@ async fn handle_dismiss(
     let _ = bot.delete_message(chat_id, message.id()).await;
     state.remove_spam_notification(chat_id, banned_user_id);
 
+    let clicker_name = format!(
+        "{} {}",
+        q.from.first_name,
+        q.from.last_name.as_deref().unwrap_or("")
+    )
+    .trim()
+    .to_string();
+    let clicker_username = q
+        .from
+        .username
+        .as_ref()
+        .map(|u| format!("@{}", u))
+        .unwrap_or_else(|| "no username".to_string());
+
     tracing::info!(
-        "User {} dismissed ban for user {} in chat {}",
+        "User {} ({}, {}) dismissed ban for user {} in chat {}",
+        clicker_name,
+        clicker_username,
         clicker,
         banned_user_id,
         chat_id
